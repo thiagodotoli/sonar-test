@@ -1,0 +1,52 @@
+# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
+
+name: Node.js CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  sonarqube:
+    runs-on: self-hosted
+    name: Analisar código SonarQube Local
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x, 22.x]
+        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Instalar dependências
+      run: npm ci
+
+    - name: Rodar testes (opcional)
+      run: npm test || true
+
+    - name: Instalar SonarScanner CLI
+      run: npm install -g sonar-scanner
+
+    - name: Rodar análise no SonarQube Local
+      env:
+        SONARQUBE_TOKEN: ${{ secrets.SONARQUBE_TOKEN }}
+        SONARQUBE_HOST: ${{ secrets.SONARQUBE_HOST }}
+      run: |
+        sonar-scanner \
+          -Dsonar.projectKey=${{ secrets.SONARQUBE_PROJECT_KEY }} \
+          -Dsonar.projectName=${{ secrets.SONARQUBE_PROJECT_KEY }} \
+          -Dsonar.sources=src \
+          -Dsonar.tests=tests \
+          -Dsonar.host.url=${{ secrets.SONARQUBE_HOST }} \
+          -Dsonar.login=${{ secrets.SONARQUBE_TOKEN }} \
+          -Dsonar.exclusions="**/node_modules/**,**/coverage/**" \
+          -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
